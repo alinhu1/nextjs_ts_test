@@ -1,178 +1,119 @@
+
 'use client'
 
-import React,{ useEffect, useState} from "react"
-import { POST } from "./api/todos/route"
-import { Todo } from "./api/todos/types"
-
-let nextId = 4
+import React, { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { getTodos, createTodo, updateTodo, deleteTodo, Todo } from '../services/todo'
 
 export default function Home() {
-  //定义数组
-  // const [products, setProducts] = useState([
-  //   { name: '吃饭', completed: false, id: 1 },
-  //   { name: '睡觉', completed: true, id: 2 },
-  //   { name: '打豆豆', completed: true, id: 3 },
-  // ])
+  const queryClient = useQueryClient()
+  const [inputValue, setInputValue] = useState('')
+  const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all')
 
-  const [products,setProducts] = useState<Todo[]>([])
-
-  //初始化加载数组数据
-  useEffect(() => {
-    fetchTodos()
-  },[])
-
-
-  const fetchTodos = async() =>{
-    const response =await fetch('/api/todos')
-    const data = await response.json()
-    setProducts(data)
-  }
-  // const TodoItem = products.map(product =>
-  //   <li key={product.id}>
-  //     {product.name}
-  //   </li>
-  // )
-
-  const [inputValue, setinputValue] = useState('')
-
-
-
-  //在input中输入的值
-  const handleInputValue = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const value = event.target.value;
-    setinputValue(value)
-    console.log('当前的值', value);
-
-  }
-
-  //在输入框中按下回车键的事件
-  // const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-  //   if (inputValue === '') {
-  //     return
-  //   }
-  //   if (event.key === 'Enter') {
-  //     const newProduct = {
-  //       name: inputValue.trim(),
-  //       completed: false,
-  //       id: nextId++
-  //     }
-
-  //     setProducts([...products, newProduct]);
-  //     setinputValue('')
-  //     console.log(`按下回车键的值:${inputValue}`);
-  //   }
-
-  // }
-
-
-  const handleKeyDown =async(event:React.KeyboardEvent<HTMLInputElement>) =>{
-    if(inputValue === ''){
-      return
-    }
-    if(event.key ==='Enter'){
-      const response =await fetch('/api/todos',{
-        method:'POST',
-        headers:{
-          'Content-Type':'application/json'
-        },
-        body:JSON.stringify({
-          name:inputValue.trim(),
-          completed:false
-        })
-      })
-      const newTodo:Todo =await response.json()
-      setProducts([...products, newTodo]);
-      setinputValue('');
-    }
-  }
-
-
-  //切换completed的状态
-  // const CompleteStatus = (id:number)=>{
-  //   setProducts(
-  //     products.map((product) =>
-  //     product.id === id ? {...product,completed: !product.completed} : product)
-  //   )
-  // }
-
-  const CompleteStatus =async(id:number) =>{
-    const todo = products.find(p => p.id === id)
-
-    const response = await fetch(`/api/todos/${id}`,{
-      method:'PUT',
-      body:JSON.stringify({
-        completed: !todo?.completed
-      })
-    })
-    const updateTodo = await response.json()
-    setProducts(
-      products.map((p) =>
-      p.id === id ? {...p,completed: !p.completed} :p)
-    )
-  }
-
-  //筛选功能的实现
-  const [filter,setFilter] = useState<'all'|'active'|'completed'>('all')
-
-  const onShow = products.filter((product) => {
-    if(filter === 'active'){
-      return !product.completed
-    }else if(filter === 'completed'){
-      return product.completed
-    }else{
-      return true
-    }
+  // 获取待办事项
+  const { data: todos = [] } = useQuery<Todo[]>({
+    queryKey: ['todos'],
+    queryFn: getTodos,
   })
 
-  const count = products.filter((product) => !product.completed).length
+  // 创建待办事项
+  const createMutation = useMutation({
+    mutationFn: createTodo,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['todos'] })
+      setInputValue('')
+    },
+  })
 
+  // 更新待办事项
+  const updateMutation = useMutation({
+    mutationFn: updateTodo,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['todos'] })
+    },
+  })
 
-  //删除功能的实现
-  const handleDelete =async(id:number) => {
-    await fetch(`/api/todos/${id}`,{
-      method:'DELETE'
-    })
-    setProducts(products.filter(p =>p.id !== id))
+  // 删除待办事项
+  const deleteMutation = useMutation({
+    mutationFn: deleteTodo,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['todos'] })
+    },
+  })
+
+  // 处理输入框回车
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (inputValue === '' || event.key !== 'Enter') return
+    createMutation.mutate(inputValue.trim())
   }
+
+  // 切换完成状态
+  const toggleComplete = (todo: Todo) => {
+    updateMutation.mutate({ ...todo, completed: !todo.completed })
+  }
+
+  // 删除待办事项
+  const handleDelete = (id: number) => {
+    deleteMutation.mutate(id)
+  }
+
+  // 筛选待办事项
+  const filteredTodos = todos.filter(todo => {
+    if (filter === 'active') return !todo.completed
+    if (filter === 'completed') return todo.completed
+    return true
+  })
+
+  const activeCount = todos.filter(todo => !todo.completed).length
+
+ 
 
   return (
     <div className="top">
-        <h1>TODO LIST</h1>
-        <input
-          className="input-todo"
-          type='text'
-          placeholder='您想做点什么'
-          // onChange={handleInputValue}
-          onChange={(e) => setinputValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          value={inputValue}
-        ></input>
-        <ul>
-          {/* {TodoItem}  */}
-          {onShow.map(product => (
-            <li key={product.id}>{product.name}{' '}
-              <span 
-              className={`icon-complete ${product.completed ? 'icon-complete-active' : ''}`}
-               onClick={() => CompleteStatus(product.id)}
-               >
-                </span>{' '}
-              <button onClick={() => {
-               handleDelete(product.id)
-              }}>删除</button>
-            </li>
-          ))}
-
-        </ul>
-        <div>
-          <span>还有<span>{count}</span>个未完成</span>
-          <div className='filter-btn-group'>筛选
-            <button onClick={()=> setFilter('all')}>全部</button>
-            <button onClick={()=> setFilter('active')}>未完成</button>
-            <button onClick={()=>setFilter('completed')}>已完成</button>
-          </div>
+      <h1>TODO LIST</h1>
+      <input
+        className="input-todo"
+        type="text"
+        placeholder="您想做点什么"
+        onChange={(e) => setInputValue(e.target.value)}
+        onKeyDown={handleKeyDown}
+        value={inputValue}
+      />
+    
+      
+      <ul>
+        {filteredTodos.map(todo => (
+          <li key={todo.id}>
+            <span
+              style={{
+                textDecoration: todo.completed ? 'line-through' : 'none',
+                color: todo.completed ? '#888' : '#000',
+              }}
+            >
+              {todo.name}
+            </span>
+            <span
+              className={`icon-complete ${todo.completed ? 'icon-complete-active' : ''}`}
+              onClick={() => toggleComplete(todo)}
+            />{' '}
+            <button 
+              onClick={() => handleDelete(todo.id)}
+            >
+              {deleteMutation.variables === todo.id ? '删除中...' : '删除'}
+            </button>
+          </li>
+        ))}
+      </ul>
+      
+      <div>
+        <span>还有<span>{activeCount}</span>个未完成</span>
+        <div className="filter-btn-group">
+          筛选
+          <button onClick={() => setFilter('all')}>全部</button>
+          <button onClick={() => setFilter('active')}>未完成</button>
+          <button onClick={() => setFilter('completed')}>已完成</button>
         </div>
       </div>
-
-   
-  );
+    </div>
+  )
 }
