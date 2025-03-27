@@ -38,16 +38,7 @@ export async function DELETE(
   request: Request,
   { params }: { params: { id: number } }
 ) {
-//   const success =await deleteTodo(Number(params.id));
-  
-//   if (!success) {
-//     return NextResponse.json(
-//       { error: 'Todo not found' },
-//       { status: 404 }
-//     );
-//   }
-  
-//   return new NextResponse(null, { status: 204 });
+
 try {
     
     const success = deleteTodo(Number(params.id));

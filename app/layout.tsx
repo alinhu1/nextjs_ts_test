@@ -1,26 +1,28 @@
-import type { Metadata } from "next";
+'use client'
+import { PropsWithChildren, useState } from "react";
 import "./globals.css";
-import { Roboto } from "next/font/google";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 
-const roboto = Roboto({ subsets: ['latin'], weight: '400' });
+interface IRootLayoutProps extends PropsWithChildren{
+  className:string
+}
 
-export const metadata: Metadata = {
-  title: "TODO LIST",
-  description: "todo list",
-};
+export  default function  RootLayout(props:IRootLayoutProps){
+  const {children} =props
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
-  return (
+  const [queryClient] = useState(() => new QueryClient())
+  
+
+   return (
     <html lang="en">
-      <body
-        className={roboto.className}
-      >
+      <body>
+       <QueryClientProvider client={queryClient}>
         {children}
+        <ReactQueryDevtools
+        initialIsOpen={false}/>
+       </QueryClientProvider>
       </body>
     </html>
-  );
+  )
 }
